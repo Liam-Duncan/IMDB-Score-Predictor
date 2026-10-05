@@ -1,0 +1,936 @@
+---
+title: "Project"
+output:
+  pdf_document: default
+  html_document:
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+# this hides the code in the report
+```
+
+```{r}
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+library(dplyr)
+library(broom)
+library(olsrr)
+```
+
+```{r}
+load("imdb2.RData")
+```
+Part 1: Introduction
+This dataset comes from the top 1000 movies rated on IMDB. These ratings are based on an average of all the users who rated the movie on a scale of 1-10. There are two datasets, the first dataset is the original one we were given before any cleanup. The second dataset is an updated version that we will use for the actual analysis. 
+The Original Dataset Dictionary:
+Poster_Link: A link to a photo of the poster for the movie. 
+Series_Title: The name of the movie.
+Released_Year: The year the movie was released.
+Certificate: Age Rating. There are 17 different labels in the original dataset, including the standard american motion picture rating system with G up to NC-17, as well as Indian movie ratings, which have ways to translate to american which will be done in the cleaned dataset. There were also some other ratings that go with TV rating systems, most likely for straight to TV movies. There were also ones that just said “Approved” or “Passed” Which was only really seen in old movies. Finally there were Unrated movies. 
+Runtime: Movie length in minutes.
+Genre: List of the main genres of the movie. 
+IMDB_Rating: Rating the IMDB users gave the movie (1-10)
+Overview: Short description of the movie.
+Meta_Score: Aggregated score on Meta Critic of Actual movie critics reviews.
+Director: Name of the director.
+Star1: Main movie star in the film.
+Star2: second movie star in film.
+Star3: Third movie star in film.
+Star4: Fourth movie star in film. 
+No_of_Votes: Number of individuals that rated the movie on IMDB.
+Gross: Domestic box office gross
+CHANGES IN THE NEW DATASET:
+Using the IMDB data prep r file, we clean up the dataset to make it easier to use for analysis. 
+We first updated the “Runtime” Variable to get rid of the word “Min” that is at the end of each one, to make it simply a numeric variable.
+Then, we made the Release Year a numeric variable as it was originally a character variable.
+We then fix the Apollo 13 movie observation as it was originally messed up in its relase year column.
+Then, we make different columns that look at the list of genres in the Genre variable, and expanded them to be TRUE FALSE variables for each possible genre in the dataset.
+After that, we simplify the “Certificate” variable, so that it is easier to work with. Now it only has 5 possible values: G/PG/U, Other, PG-13/UA, R/A, and Unrated.
+
+There are many questions we could use this data to try to answer, here are a few we thought of: are there certain genres that are rated higher on average than others? Does a movie's runtime affect its rating? Does the director affect the rating or does it seem to even out through a directors career? Does a movie's genre affect its box office performance?
+Looking at the question on the genre affecting a movie's performance, Ben Niu from Medium reported in an article in 2019 about the findings from an analysis of the top grossing movies, and looked at what genres were the most popular. They also looked at a movie's budget, to see if that affected the box office amount. Ben Niu then cleaned and analyzed the data himself, and found that there was a correlation between a movie's genre and its box office gross, with action and adventure movies making more than its predecessors, and genres like horror and romcoms being lower on the list of box office gross.
+Niu, Ben. "Movie Genre and Profits: Which factors lead to a more profitable movie?" Medium, 14 Apr. 2019, medium.com/@ordosnb/movie-genre-and-profits-913a3142a0fb.
+
+ https://medium.com/@ordosnb/movie-genre-and-profits-913a3142a0fb
+
+Part 2: EDA
+Below here, we have output which helps us to see how many variables have no missing values so that we can make sure to keep track of them and not have to change or work on those variables to an additional extent.
+```{r}
+print("Poster")
+ imdb <- imdb |>
+  mutate(
+    Poster_missing = is.na(Poster_Link),
+    Poster_notmissing = !is.na(Poster_Link)
+  ) 
+  table(imdb$Poster_missing)
+  print("Series")
+  
+   imdb <- imdb |>
+  mutate(
+    Series_missing = is.na(Series_Title),
+    Series_notmissing = !is.na(Series_Title)
+  ) 
+  table(imdb$Series_missing)
+  
+  print("Release Year")
+  imdb <- imdb |>
+  mutate(
+    Release_missing = is.na(Released_Year),
+    Release_notmissing = !is.na(Released_Year)
+  ) 
+  table(imdb$Release_missing)
+  
+  print("Certificate")
+  imdb <- imdb |>
+  mutate(
+    Cert_missing = is.na(Certificate),
+    Cert_notmissing = !is.na(Certificate)
+  ) 
+  table(imdb$Cert_missing)
+  
+  print("Runtime")
+  imdb <- imdb |>
+  mutate(
+    runtime_missing = is.na(Runtime),
+    runtime_notmissing = !is.na(Runtime)
+  ) 
+  table(imdb$runtime_missing)
+  
+  print("Genre")
+  imdb <- imdb |>
+  mutate(
+    Genre_missing = is.na(Genre),
+    Genre_notmissing = !is.na(Genre)
+  ) 
+  table(imdb$Genre_missing)
+  
+  print("Rating")
+  imdb <- imdb |>
+  mutate(
+    Rating_missing = is.na(IMDB_Rating),
+    Rating_notmissing = !is.na(IMDB_Rating)
+  ) 
+  table(imdb$Rating_missing)
+  
+  print("Overview")
+  imdb <- imdb |>
+  mutate(
+    Overview_missing = is.na(Overview),
+    Overview_notmissing = !is.na(Overview)
+  ) 
+  table(imdb$Overview_missing)
+  
+  print("Director")
+   imdb <- imdb |>
+  mutate(
+    Director_missing = is.na(Director),
+    Director_notmissing = !is.na(Director)
+  ) 
+  table(imdb$Director_missing)
+  
+  print("Star 1")
+   imdb <- imdb |>
+  mutate(
+    Star1_missing = is.na(Star1),
+    Star1_notmissing = !is.na(Star1)
+  ) 
+  table(imdb$Star1_missing)
+  
+  print("Star 2")
+  imdb <- imdb |>
+  mutate(
+    Star2_missing = is.na(Star2),
+    Star2_notmissing = !is.na(Star2)
+  ) 
+  table(imdb$Star2_missing)
+  
+  print("Star 3")
+  imdb <- imdb |>
+  mutate(
+    Star3_missing = is.na(Star3),
+    Star3_notmissing = !is.na(Star3)
+  ) 
+  table(imdb$Star3_missing)
+  
+  print("Star 4")
+  imdb <- imdb |>
+  mutate(
+    Star4_missing = is.na(Star4),
+    Star4_notmissing = !is.na(Star4)
+  ) 
+  table(imdb$Star4_missing)
+  
+  print("Vote")
+  imdb <- imdb |>
+  mutate(
+    Vote_missing = is.na(No_of_Votes),
+    Vote_notmissing = !is.na(No_of_Votes)
+  ) 
+  table(imdb$Vote_missing)
+  
+  print("Action Movie")
+  imdb <- imdb |>
+  mutate(
+    Action_missing = is.na(Action),
+    Action_notmissing = !is.na(Action)
+  ) 
+  table(imdb$Action_missing)
+  
+  print("Adventure Movie")
+   imdb <- imdb |>
+  mutate(
+    Adventure_missing = is.na(Adventure),
+    Adventure_notmissing = !is.na(Adventure)
+  ) 
+  table(imdb$Adventure_missing)
+  
+  print("Biography Movie")
+   imdb <- imdb |>
+  mutate(
+    Biography_missing = is.na(Biography),
+    Biography_notmissing = !is.na(Biography)
+  ) 
+  table(imdb$Biography_missing)
+ 
+  print("Comedy Movie")
+ imdb <- imdb |>
+  mutate(
+    Comedy_missing = is.na(Comedy),
+    Comedy_notmissing = !is.na(Comedy)
+  ) 
+  table(imdb$Comedy_missing)
+  
+  print("Crime Movie")
+   imdb <- imdb |>
+  mutate(
+    Crime_missing = is.na(Crime),
+    Crime_notmissing = !is.na(Crime)
+  ) 
+  table(imdb$Crime_missing)
+  
+  print("Drama Movie")
+   imdb <- imdb |>
+  mutate(
+    Drama_missing = is.na(Drama),
+    Drama_notmissing = !is.na(Drama)
+  ) 
+  table(imdb$Drama_missing)
+  
+  print("Thriller Movie")
+   imdb <- imdb |>
+  mutate(
+    Thriller_missing = is.na(Thriller),
+    Thriller_notmissing = !is.na(Thriller)
+  ) 
+  table(imdb$Thriller_missing)
+```
+
+### All Variables that have missing values
+
+```{r}
+print("Meta Score")
+ imdb <- imdb |>
+  mutate(
+    Meta_missing = is.na(Meta_score),
+    Meta_notmissing = !is.na(Meta_score)
+  ) 
+  table(imdb$Meta_missing)
+  
+  print("Movie Gross")
+   imdb <- imdb |>
+  mutate(
+    Gross_missing = is.na(Gross),
+    Gross_notmissing = !is.na(Gross)
+  ) 
+  table(imdb$Gross_missing)
+```
+
+There are no missing values except for Meta scores where 157 movies do not have a Meta score and Gross made from the movie showing up as missing for 169 movies.
+
+### Runtime
+
+```{r}
+imdb |>
+  summarize(
+    Min = min(Runtime, na.rm = TRUE),
+    Q1 = quantile(Runtime, 0.25, na.rm = TRUE),
+    Median = median(Runtime, na.rm = TRUE),
+    Q3 = quantile(Runtime, 0.75, na.rm = TRUE),
+    Max = max(Runtime, na.rm = TRUE),
+    Mean = mean(Runtime, na.rm = TRUE),
+    SD = sd(Runtime, na.rm = TRUE)
+  ) |>
+  kable()
+ 
+```
+
+### Meta score
+
+```{r}
+imdb |>
+  summarize(
+    Min = min(Meta_score, na.rm = TRUE),
+    Q1 = quantile(Meta_score, 0.25, na.rm = TRUE),
+    Median = median(Meta_score, na.rm = TRUE),
+    Q3 = quantile(Meta_score, 0.75, na.rm = TRUE),
+    Max = max(Meta_score, na.rm = TRUE),
+    Mean = mean(Meta_score, na.rm = TRUE),
+    SD = sd(Meta_score, na.rm = TRUE)
+  ) |>
+  kable()
+```
+
+### IMDB Rating
+
+```{r}
+imdb |>
+  summarize(
+    Min = min(IMDB_Rating, na.rm = TRUE),
+    Q1 = quantile(IMDB_Rating, 0.25, na.rm = TRUE),
+    Median = median(IMDB_Rating, na.rm = TRUE),
+    Q3 = quantile(IMDB_Rating, 0.75, na.rm = TRUE),
+    Max = max(IMDB_Rating, na.rm = TRUE),
+    Mean = mean(IMDB_Rating, na.rm = TRUE),
+    SD = sd(IMDB_Rating, na.rm = TRUE)
+  ) |>
+  kable()
+```
+
+***Movie Gross***
+
+```{r}
+imdb |>
+  summarize(
+    Min = min(Gross, na.rm = TRUE),
+    Q1 = quantile(Gross, 0.25, na.rm = TRUE),
+    Median = median(Gross, na.rm = TRUE),
+    Q3 = quantile(Gross, 0.75, na.rm = TRUE),
+    Max = max(Gross, na.rm = TRUE),
+    Mean = mean(Gross, na.rm = TRUE),
+    SD = sd(Gross, na.rm = TRUE)
+  ) |>
+  kable()
+```
+Up above, we have a number of tables so that we can take a look into what factors may impact IMDB score by seeing if shorter movies or movies with a higher IMDB score seem to pop up more often in which we were able to find it is rare for a movie to be under 1 hour long but there are a couple, showing that short films can still make the list. It also allowed us to see that movies can make a tiny amount of money and still make the top 1,000, with us having a film that only made 1,305 dollars.
+
+### All Numeric Univariate graphs
+Down below, we are working on three seperate univariate graphs in an attempt to better grasp and understand the variables which we have done below. We can see based off of them that most movies have a Metascore over or around 75, we also found that most movies that make it into the top 1,000 don't make a lot of money at the box office, and around half seem to have come out post 2,000, showing a bit of a recency bias.
+```{r}
+ggplot(imdb, aes(x = Meta_score)) +
+  geom_histogram(binwidth = 2, 
+                 fill = "pink", 
+                 color = "black") + 
+  labs(title = "Meta score Histogram", 
+       x = "Meta score",                        
+       y = "Number of movies with that score") 
+
+ggplot(imdb, aes(x = log10(Gross))) +
+  geom_histogram(binwidth = 0.2, 
+                 fill = "pink", 
+                 color = "black") +
+  labs(title = "Movie box office gross (Log Scale)", 
+       x = "Log10 Gross at box office",                        
+       y = "Number of movies")
+
+ggplot(imdb, aes(x = Released_Year)) +
+  geom_histogram(binwidth = 1, 
+                 fill = "pink", 
+                 color = "black") + 
+  scale_x_continuous(limits = c(1900, NA), expand = c(0, 0))+
+  labs(title = "Movie box office gross Histogram", 
+       x = "Release Year",                        
+       y = "Number of movies") 
+
+```
+### Categorical graphs
+
+```{r}
+imdb %>%
+  count(Director, sort = TRUE) |>    
+  slice_max(n, n = 10) |>            
+  ggplot(aes(x = reorder(Director, n), y = n)) +
+  geom_col(fill = "blue") +
+  coord_flip() +                         
+  labs(title = "Top 10 Directors by Number of Movies",
+       x = "Director",
+       y = "Count")
+
+```
+### Bivariate Graphs
+```{r}
+  ggplot(imdb, aes(x = Runtime, y = log(Gross))) +
+  geom_point(color = "blue", size = 2) +  
+  labs(title = "Runtime and Movie Gross relationship",   
+       x = "Movie length in minutes",               
+       y = "Box office gross in dollars (Log Transformed)")    
+
+imdb|>
+  group_by(Genre)|>
+  filter(n()>=10)|>
+ ggplot( aes(y = Genre, x = Meta_score)) +
+  geom_point(color = "blue", size = 1) +  
+  labs(title = "Movie Genre and Meta score relationship",   
+       x = "Movie Genre",               
+       y = "Meta score") 
+ 
+ genre_reference <- tibble(Genre = c("Action", "Adventure", "Biography", "Comedy", "Drama", "Thriller"))
+genre_summary <- imdb |>
+  filter(Genre %in% genre_reference$Genre) |>
+  group_by(Genre) |>
+  summarize(mean_meta = mean(Meta_score, na.rm = TRUE))
+genre_complete <- genre_reference |>
+  left_join(genre_summary, by = "Genre")
+
+```
+```{r}
+row2<-c(imdb|>
+  filter(Action==TRUE)|>
+  summarise(Action=mean(Meta_score,na.rm=TRUE)),imdb|>
+    filter(Adventure==TRUE)|>
+    summarise(Adventure=mean(Meta_score,na.rm=TRUE)),imdb|>
+  filter(Biography==TRUE)|>
+  summarise(Biography=mean(Meta_score,na.rm=TRUE)),imdb|>
+  filter(Comedy==TRUE)|>
+  summarise(Comedy=mean(Meta_score,na.rm=TRUE)),imdb|>
+  filter(Crime==TRUE)|>
+  summarise(Crime=mean(Meta_score,na.rm=TRUE)),imdb|>
+  filter(Drama==TRUE)|>
+  summarise(Drama=mean(Meta_score,na.rm=TRUE)),imdb|>
+  filter(Thriller==TRUE)|>
+  summarise(Thriller=mean(Meta_score,na.rm=TRUE))
+  
+    )
+row1<-c("Action","Adventure","Biography","Comedy","Crime","Drama","Thriller")
+Genres <- data_frame(Genre=row1,Mean_Meta=row2)
+Genres<-Genres|>
+  mutate(Genre=as.character(Genre),Mean_Meta=as.numeric(Mean_Meta))
+Genres|>
+  ggplot(aes(x=Mean_Meta,y=Genre))+
+  geom_col(fill='blue',color="black")+
+  labs(title='Meta Scores by Movie Genres',subtitle = "Genres are Action, Adventure, Biography, Comedy, Crime, Drama, and Thriller",y="Genre",x="Meta Score")
+
+```
+We are able to see how the runtime impacts total box office, with us seeing that on average, the sweet spot is around 100 to 200 minutes, with most movies making less if they fall outside of that, but there are outlier,s such as our 936 million gross box office film, that isn't even 150 minutes. This graph allows us to see the interaction between genre and meta score where we can see that drama tends to be rated slightly better, but by such a small amount it doesn't really mean too much.
+
+
+## Part 3 SLR:
+
+
+Response variable: 
+We chose IMDB_Rating as the response variable. This variable represents audience ratings of a movie, which is quantitative. It makes sense as a response variable because audience ratings are what we want to explain or predict.
+
+Explanatory variable:
+We chose Meta_score as the explanatory variable. This variable reflects critic ratings of a movie, which is also quantitative. It is reasonable to use it as a predictor because we are interested in testing whether professional critic scores are associated with audience ratings.
+
+
+### Checking for missing values in Meta_score and IMDB_Rating
+```{r}
+#Checking for missing values in Meta_score
+imdb |>
+mutate(missing = is.na(Meta_score),
+       notmissing = !is.na(Meta_score)) |>
+  summarize(n_missing = sum(missing))
+#Checking for missing values in IMDB_Rating
+imdb |>
+mutate(i_missing = is.na(IMDB_Rating),
+       i_notmissing = !is.na(IMDB_Rating)) |>
+  summarize(m_missing = sum(i_missing))
+
+library(ggplot2)
+#Creating scatterplot with fitted regression
+ggplot(
+  data = imdb, 
+  mapping = aes(x = Meta_score, y = IMDB_Rating)
+) + 
+  geom_point()+
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+   title = "Relationship between Meta Score and IMDB Rating",
+   x = "Meta Score (0-100)",
+   y = "IMDB Rating (1-10)"
+  ) +
+  theme_minimal()
+#Finding regression equation
+fit <- lm(IMDB_Rating ~ Meta_score, data = imdb)
+summary(fit)
+
+#Finding confidence interval for the slope 
+confint(fit, level = 0.95)
+```
+There are zero missing values in IMDB_Rating, but there are 157 missing values in Meta_score. These missing values will be excluded from our analysis. This does reduce our sample size for regression, which can decrease the strength of our estimates.
+
+### Creating scatterplot with fitted regression
+```{r warning=FALSE}
+library(ggplot2)
+ggplot(
+  data = imdb, 
+  mapping = aes(x = Meta_score, y = IMDB_Rating)
+) + 
+  geom_point()+
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+   title = "Relationship between Meta Score and IMDB Rating",
+   x = "Meta Score (0-100)",
+   y = "IMDB Rating (1-10)"
+  ) +
+  theme_minimal()
+
+```
+### Finding regression equation
+```{r}
+fit <- lm(IMDB_Rating ~ Meta_score, data = imdb)
+
+```
+Regression line equation: Predicted IMDB_Rating = 0.00616*Meta_Score + 7.45
+Slope interpretation: For each one-point increase in Meta_score, the average IMDB_Rating increases by 0.00616.
+R-squared value interpretation: The R-squared value is 0.072, meaning about 7.2% of the variability in IMDB_Rating is explained by Meta_score.
+Estimated regression standard deviation interpretation: The estimated regression standard deviation is 0.6. This means that, on average, observed IMDB_Ratings differ from the predicted regression line by about 0.06 rating points.
+
+### Finding confidence interval for the slope 
+```{r}
+confint(fit, level = 0.95)
+```
+95% confidence interval for the slope: We are 95% confident the true slope is between 0.00466 and 0.00765. For each one-point increase in Meta_score, the average IMDB_Rating is expected to increase by about 0.005 to 0.008 points.
+
+Conclusions from the SLR:
+From this simple linear regression, we can conclude there is a positive relationship between Meta_score and IMDB_Rating. The positive slope indicates that higher critic scores are associated with higher audience ratings. The low R-squared value of only 0.072 indicates that other factors also play a substantial role in audience opinions. 
+
+## Part 4.1: MLR - only quantitative predictors
+
+### Using the same response variable as in Part 3, fit an MLR model with multiple explanatory variables, all of which are quantitative.
+
+```{r}
+fitimdb <- lm(data=imdb, IMDB_Rating ~ Meta_score + Runtime + No_of_Votes + Gross )
+```
+
+```{r include=FALSE}
+table(imdb$Meta_missing==TRUE)
+table(imdb$runtime_missing==TRUE)
+table(imdb$Vote_missing==TRUE)
+table(imdb$Gross_missing==TRUE)
+```
+The variables we decided to explore were the IMDB score as the response variable, and the metacritic rating, runtime, number of votes, and gross box office as the explanatory variables.There are a few variables with missing values. Meta rating is missing 157 values, and gross box office is missing 169 values, this causes us to lose some of the data when analyzing as the lm function removes missing data.
+
+```{r warning=FALSE}
+library(ggfortify)
+autoplot(fitimdb, which = c(1,2,4,5), label = FALSE)
+```
+
+Looking at diagnostic plots for regression assumptions, we see that the residuals vs fitted plot shows a violation of constant variance, but not 0 mean errors. The Q-Q plot shows a curve away from the line on both sides, also showing a violation of constant variance. I do not think a transformation would help, as a log transformation helps when the variance increases as the fitted values increase, but in this the variance actually seems to decrease, a log transformation would be unnecessary.
+
+#### Checking for outliers.
+
+```{r}
+
+augment(fitimdb)|>
+  arrange(desc(.hat))|>
+  rename("leverage"=.hat)
+augment(fitimdb)|>
+  arrange(desc(abs(.std.resid)))
+augment(fitimdb)|>
+  arrange(desc(.cooksd))
+```
+
+
+When we look at leverage, none of the leverages are too much higher than others, so that does not seem to be an issue. There are two large cooks distances which are Avengers: Infinity war and Endgame, it looks like the long runtime and high number of votes are contributing to that.The studentized residuals have a few outliers, rows 5, 60, 61, and 27 are outliers. These are “12 angry men”, “La vita e Bella”, “avengers endgame” and “avengers infinity war”. 12 Angry Men has a short runtime, but still a high score. Endgame and Infinity War have very high box office grosses. La vita e bella has a low meta score but still a high imdb score.
+But, I would not remove any data pieces. They are still valid points of data, they are still movies that were rated in the top 1000 on imdb, it may be a bit unorthodox to see them there, which is why they are outliers, but they still are.
+
+
+```{r}
+ols_vif_tol(fitimdb)
+```
+Next, lets look at the VIF values for each variable, to see if multicollinearity is a problem. 
+
+Below is each VIF value:
+
+VIF for Meta Score: 1.0021 
+VIF for Runtime: 1.054 
+VIF for Number of Votes: 1.4803 
+VIF for Gross: 1.45488
+
+Remember, since none of the VIF values are above 10 we do not have any glaring issues. This shows that multicollinearity is not an issue. All the explanatory variables do not increase by a large factor (their VIF values) if they did not have relationships with the other explanatory variables
+
+
+```{r}
+tidy(fitimdb)
+glance(fitimdb)
+```
+
+Predicted IMDB Score = 7.098 + .0061(Meta Score)+.0016(Runtime)+.000000616(Number of Votes)-.00000000077(Dollars made)
+
+META SCORE SLOPE ANALYSIS: for every 1 point increase of the meta score, the regression line predicts a .0061 increase in imdb score, assuming runtime, number of votes, and dollars made is held constant
+
+RUNTIME SLOPE ANALYSIS: for every minute longer a movie is, the regression line predicts a .0016 increase in imdb score, assuming meta score, number of votes, and dollars made are kept constant
+
+NUMBER OF VOTES SLOPE ANALYSIS: for every 1000 user votes, the regression line predicts a .000616 increase in imdb score, assuming meta score, runtime, and dollars made are kept constant
+
+GROSS SLOPE ANALYSIS: for every 1,000,000 dollars made, the regression line predicts a .00077 decrease in imdb score, assuming meta score, runtime, and number of votes are kept constant. 
+Adjusted R\^2= .532033: 53.2 percent of the variation in the imdb score can be explained by the model using meta score, runtime, number of votes, and gross revenue. 
+Estimated Regression Standard Deviation =.1978: Our estimation of IMDB score using the model including Meta score, runtime, number of votes, and gross revenue is on average off by .1978 points.
+
+After fitting the multiple linear regression model, we can conclude that the model predicts imdb score to increase when the meta score, runtime, and number of votes are increasing, as long as the other variables remain constant. but the predicted imdb score decreases as the box office gross increases, as long as the other variables remain constant. This does make sense as it seems like as a movie gets more popular the audience may be more critical of it, so they may score the movie lower because of that, but the critics at meta probably do not take that popularity into account as much as the general audience does.
+
+
+## Part 4.2: MLR - adding categorical predictors and considering interaction
+
+### Model without interaction
+In here we are trying to add categorical variables into here and work with them in an attempt to better understand how exactly it will impact our model as well as see how interaction may impact our model.
+```{r include=FALSE}
+glimpse(imdb)
+imdb <- imdb |>
+  mutate(
+    Certificate = as.factor(Certificate),
+    Genre = as.factor(Genre),
+    Director = as.factor(Director)
+  )
+model_no_interaction <- lm(IMDB_Rating ~ Meta_score + Certificate, data = imdb)
+summary(model_no_interaction)
+```
+
+```{r}
+par(mfrow = c(1, 1))
+plot(model_no_interaction)
+```
+Based off of these, it would seem to be that most of the requirements are met or close to it in terms of it being close to a diagonal line, there also isn't much of a fanning or reverse fanning effect so it would be fair to say that we can continue using this to further explore the data set but we will still check the scale location and residuals vs leverage just to be sure.
+
+```{r}
+model_log <- lm(log(IMDB_Rating) ~ Meta_score + Certificate, data = imdb)
+plot(model_log)
+par(mfrow = c(1, 1))
+plot(model_log)
+```
+This does not seem to improve the model much so we're instead going to plan on continuing to use the above model for the rest of this section. For the equation, we seem to get 
+IMDB_Rating= 7.4434+0.0064 * Meta_score -0.0296 * Certificate Other - 0.0256 * Certificate PG-13/UA + 0.0068 * CertificateR/A - 0.1028 * CertificateUnrated 
+The coefficients in this case means that with a zero for everything else, the value would still be 7.4434 and for every meta score, the value goes up by 0.0064, a certificate of other lowers it by 0.0296, pg13/us lowers it by 0.0256, r/a raises it by 0.0068, and unrated lowers it by 0.1028
+
+### Model with interaction
+```{r}
+model_interaction <- lm(IMDB_Rating ~ Meta_score * Certificate, data = imdb)
+summary(model_interaction)
+```
+
+### Graph Analysis
+```{r message=FALSE}
+ggplot(imdb, aes(x = Meta_score, y = IMDB_Rating, color = Certificate)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal() +
+  labs(title = "Interaction Between Meta_score and Certificate",
+       subtitle = "Does slopes differ across movie rating?",
+       x = "Meta Score",
+       y = "IMDB Rating")
+```
+Based off of the graph above, it would be fair to say that there is a relationship between the IMDB score that a movie gets vs the meta score they have based off of the age rating that it gets. There does seem to be a small bias towards R/A getting the highest score but an interesting thing to note is that most of the movies have meta scores that start above forty but it would appear that movies that are unrated or other rate higher. This effect may be due to the fact that other would most likely end up meaning that it is a foreign/small film which means that it might be a more artistic expression which makes it more likely to be rate highly. I think unrated might be rated more highly only because it is more likely to be a niche film which means that people are less likely to review it unless the film was already interesting to them.
+
+### Model with two explanatory variables
+```{r}
+imdb <- imdb |>
+  mutate(Certificate = as.factor(Certificate))
+imdb_clean <- imdb |>
+  filter(!is.na(Meta_score), !is.na(Gross))
+model_interaction <- lm(IMDB_Rating ~ Meta_score * Certificate + Gross, data = imdb_clean)
+summary(model_interaction)
+```
+  The equation of the model is as follows. 
+ predicted imdb rating=7.3334+0.00742 * meta_score+0.1736 * certificateOther-0.2140 * certificatePG-13/UA+0.0228 * certificateR/A-0.0325 * certificateUnrated+0.00000000401 * gross-0.0144 * (meta_score * certificateOther)-0.0348* (meta_score * cetificatePG-13/UA) -0.00007 * (meta_score * certificateR/A) + 0.00836 * (meta_score *certificate unrated)
+
+But overall, the strength of the variables is pretty weak across the board as they make very little difference in what the actual imdb score is as well as having very high p values, so the model that includes certificate and meta score is not a great predictor of imdb score. It would appear to mostly be a weak negative relationship.
+
+## Part 5 - Model Selection:
+
+```{r}
+#Creating max model
+max_model_imdb <-lm(IMDB_Rating ~ 
+  Certificate +
+  Released_Year +
+  Runtime +
+  Meta_score +
+  No_of_Votes +
+  Gross +
+  Action + Adventure + Biography + Comedy + Crime + Drama + Thriller, data = imdb)
+```
+I chose the variables Certificate, Released_Year, Runtime, Meta_score, No_of_Votes, Gross, Action, Adventure, Biography, Comedy, Crime, Drama, and Thriller for our max model. I then chose variables that I thought could have potential for interaction. These variables include Runtime and Certificate, and Meta_Score and Certificate.
+
+### Checking valuable interaction plots
+
+```{r message=FALSE, warning=FALSE}
+ggplot(imdb, aes(x = Runtime, y = IMDB_Rating, color = Certificate)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal() +
+  labs(
+    title = "Interaction: Runtime × Certificate",
+    x = "Runtime (minutes)",
+    y = "IMDB Rating"
+  )
+
+ggplot(imdb, aes(x = Meta_score, y = IMDB_Rating, color = Certificate)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal() +
+  labs(
+    title = "Interaction: Meta Score × Certificate",
+    x = "Meta Score",
+    y = "IMDB Rating"
+  )
+
+```
+Because the lines for each Certificate level have noticeably different slopes, the relationship between the predictor and IMDB_Rating is not consistent across certificate categories. This indicates the presence of an interaction. In other words, both Runtime and Meta_score affect IMDB_Rating differently depending on a movie’s Certificate rating.
+```{r}
+# Creating a dataset with no missing values
+imdb_clean_max <- na.omit(imdb)
+```
+I created a new dataset with no missing values and used that dataset to make a function to use for each of my models.
+```{r}
+get_metrics <- function(model, name) {
+  data.frame(
+    Model = name,
+    Predictors = length(coef(model)) - 1,
+    Adj_R2 = summary(model)$adj.r.squared,
+    AIC = AIC(model),
+    BIC = BIC(model)
+  )
+}
+
+```
+### Restating models from parts 3 and 4
+```{r}
+model_part3 <- lm(IMDB_Rating ~ Meta_score, data = imdb_clean_max)
+model_part4 <- lm(IMDB_Rating ~ Meta_score + Certificate, data = imdb_clean_max)
+model_part3
+model_part4
+
+```
+
+### Finding Adjusted R-squared, AIC, and BIC values for each model
+```{r}
+criteria_table <- bind_rows(
+  get_metrics(model_part3, "Part 3"),
+  get_metrics(model_part4, "Part 4"),
+  get_metrics(max_model_imdb, "Max Model")
+)
+criteria_table
+```
+
+```{r}
+## Setting up cross validation
+set.seed(24601)
+imdb_clean_max$id <- 1:nrow(imdb_clean_max)
+train <- imdb_clean_max %>% sample_frac(0.7)
+test  <- anti_join(imdb_clean_max, train, by = 'id')
+
+```
+
+
+```{r}
+## Training models
+train_part3 <- lm(IMDB_Rating ~ Meta_score, data = train)
+
+train_part4 <- lm(IMDB_Rating ~ Meta_score + Certificate, data = train)
+
+train_max <- lm(IMDB_Rating ~ Runtime + Meta_score + No_of_Votes + Gross + Released_Year +
+                  Action + Adventure + Biography + Comedy + Crime + Drama + Thriller + Certificate, 
+                data = train)
+```
+
+
+```{r}
+## Stepwise on training data
+step_aic <- ols_step_both_aic(train_max)
+step_bic <- ols_step_both_sbc(train_max)
+```
+### Stepwise graphs 
+```{r}
+all_dataic <- tibble(step_aic$metrics) |> 
+  select(step,variable,method,aic)|>
+  mutate(
+    abbrev = ifelse(method=="addition",'+','-'), 
+    variable = str_c(abbrev, variable))
+all_dataic|>
+  ggplot(aes(x=step,y=aic,label=variable))+
+  geom_point()+
+  geom_line()+
+  geom_text(nudge_x =.3, nudge_y=7)
+```
+
+```{r}
+all_dat <- tibble(step_bic$metrics) |> 
+  select(step,variable,method,sbc)|>
+  mutate(variable=str_c("+",variable))
+all_dat|>
+  ggplot(aes(x=step,y=sbc,label=variable))+
+  geom_point()+
+  geom_line()+
+  geom_text(nudge_x =.3, nudge_y=7)
+```
+
+### Calculate R^2 values on train data
+```{r}
+train_adjr2 <- data.frame(
+  Model = c("Part 3", "Part 4", "Max Model", "Stepwise AIC", "Stepwise BIC"),
+  Train_Adj_R2 = c(
+    summary(train_part3)$adj.r.squared,
+    summary(train_part4)$adj.r.squared,
+    summary(train_max)$adj.r.squared,
+    summary(step_aic$model)$adj.r.squared,
+    summary(step_bic$model)$adj.r.squared
+  )
+)
+kable(train_adjr2)
+```
+### Calculate test R^2
+```{r}
+test_r2 <- data.frame(
+  Model = c("Part 3", "Part 4", "Max Model", "Stepwise AIC", "Stepwise BIC"),
+  Test_R2 = c(
+    cor(test$IMDB_Rating, predict(train_part3, test))^2,
+    cor(test$IMDB_Rating, predict(train_part4, test))^2,
+    cor(test$IMDB_Rating, predict(train_max, test))^2,
+    cor(test$IMDB_Rating, predict(step_aic$model, test))^2,
+    cor(test$IMDB_Rating, predict(step_bic$model, test))^2
+  )
+)
+kable(test_r2)
+```
+The most adequate models to predict IMDB_Rating would be the stepwise BIC model using No_of_Votes, Released_Year, Gross, Meta_score, and Runtime as predictors and the stepwise AIC model using the same variables as the BIC model plus CertificateOther, CertificatePG-13/UA, CertificateR/A, CertificateUnrated, DramaTRUE, and CrimeTRUE as predictors. Both models have small differences between their adjusted r^2 values from the train data and their r^2 values from the test data meaning they can be generalized well to new data without overfitting. The BIC model is simpler and still an accurate predictor, so overall I would chose that model. 
+
+```{r}
+## Fitting the stepwise BIC model 
+favorite_model <- lm(IMDB_Rating ~ No_of_Votes + Released_Year + Gross + 
+                      Meta_score + Runtime, 
+                      data = imdb_clean_max)
+
+
+```
+
+### Checking normality of residuals
+```{r}
+residuals_df <- data.frame(residuals = residuals(favorite_model))
+ggplot(residuals_df, aes(x = residuals)) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "black") +
+  labs(title = "Distribution of Residuals",
+       x = "Residuals", 
+       y = "Frequency")
+fig.width = 5 
+fig.height = 4
+
+```
+Residuals seem to be fairly normally distributed, so the model assumption of normally distributed errors is satisfied.
+### Checking linearity with residuals vs. fitted values
+```{r}
+plot_data <- data.frame(
+  fitted = fitted(favorite_model),
+  residuals = residuals(favorite_model)
+)
+ggplot(plot_data, aes(x = fitted, y = residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Residuals vs Fitted Values",
+       x = "Fitted Values", 
+       y = "Residuals")
+fig.width = 5 
+fig.height = 4
+
+```
+Since there is a clear pattern in the residuals, the linearity assumption is violated.
+
+### Checking for multicollinearity 
+```{r message=FALSE,warning=FALSE}
+library(car)
+vif(favorite_model)
+```
+There is no problem with multicollinearity since all VIF values are under 5.
+
+### Checking for outliers
+```{r}
+plot(residuals(favorite_model),
+     main = "Residuals by Observation",
+     xlab = "Observation Number",
+     ylab = "Residuals")
+fig.width = 5 
+fig.height = 4
+
+```
+There are no clear outliers in our residuals, but there is definitely a pattern within our residuals in relation to the observation number.
+### Checking for skewed data in predictors
+```{r}
+par(mfrow = c(3, 2))  # 3 rows, 2 columns
+hist(imdb_clean_max$No_of_Votes, main = "No_of_Votes")
+hist(imdb_clean_max$Released_Year, main = "Released_Year")
+hist(imdb_clean_max$Gross, main = "Gross")
+hist(imdb_clean_max$Meta_score, main = "Meta_score")
+hist(imdb_clean_max$Runtime, main = "Runtime")
+par(mfrow = c(1, 1))
+```
+The predictors No_of_Votes and Gross seem to be the most skewed, so log-transforming those variables may help satisfy the assumption of linearity for our model.
+
+```{r}
+
+## Fitting log-transformed model (added +1 to avoid log(0))
+favorite_model_log <- lm(IMDB_Rating ~ log(No_of_Votes + 1) + 
+                                       Released_Year +
+                                       log(Gross + 1) + 
+                                       Meta_score +
+                                       Runtime, 
+                         data = imdb_clean_max)
+
+```
+
+### Plotting residuals vs. fitted values on new model 
+```{r}
+plot_data_log <- data.frame(
+  fitted = fitted(favorite_model_log),
+  residuals = residuals(favorite_model_log)
+)
+ggplot(plot_data_log, aes(x = fitted, y = residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Residuals vs Fitted Values",
+       x = "Fitted Values", 
+       y = "Residuals")
+fig.width = 5
+fig.height = 4
+
+```
+It looks like we still have a pattern in our residuals, but this may be due to the fact that IMDB rating values are recorded to the nearest tenth value. Since these are discrete values, they may be causing the striped pattern in our residuals, which we cannot control. It's okay to proceed with the untransformed model in this case.
+
+## Part 6: Model usage and discussion/conclusion
+
+The variables in our final model include No_of_Votes, Released_Year, Gross, Meta_score, and  Runtime. We found these variables in Part 5 to be the best predictors, based on the stepwise BIC function.
+```{r}
+final_model <- lm(IMDB_Rating ~ No_of_Votes + Released_Year + Gross + 
+                      Meta_score + Runtime, 
+                      data = imdb_clean_max)
+summary(final_model)
+```
+Interpretation of slope for Released_Year: For each 1-year increase in release date, we predict a decrease of 0.00315 points in the IMDB rating, keeping all other variables constant.
+
+Interpretation of slope for Meta_score: For each 1 point increase in meta score, we predict an increase of 0.004699 points to the IMDB rating, keeping all other variables constant.
+
+Interpretation of slope for Runtime: For each 1-minute increase in runtime, we predict an increase of 0.00155 points to the IMDB rating, keeping all other variables constant.
+
+Our final model does not have any categorical variables. This was because the BIC model did not include them when we used a stepwise function to pick variables, but that model did end up being our best one.
+We decided to try two different movies to see how our model works for predicting outside of the dataset. We chose hundreds of beavers, which came out in 2022 and has a 7.6 on IMDB, and Little Nicky: an Adam Sandler movie from 2000 that has a 5.3 on IMDB
+```{r}
+beaver <- tibble(Meta_score=82, Released_Year = 2022, Gross =  1328251,Runtime=108,No_of_Votes=15000)
+augment(favorite_model, newdata=beaver, type.predict="response") 
+```
+We got a predicted imdb of 7.68, the true imdb score is 7.6 for hundreds of beavers!
+
+```{r}
+nicky <- tibble(Meta_score=38, Released_Year = 2000, Gross =  58292295,Runtime=90,No_of_Votes=118000)
+augment(favorite_model, newdata=nicky, type.predict="response") 
+```
+The predicted score is 7.5506; this is way off. The true score for Little Nicky is 5.3, showing that our model does not extrapolate well outside of the confines of the data. This makes sense as we don't have any data going near as low as this movie, so it makes sense to be so off.
+Our most interesting findings were about which variables caused the predicted IMDB score to decrease. The release year and the box office gross both caused the IMDB score to be predicted to decrease. The newer a movie is, the lower we predict the IMDB score to be, given that the rest of the variables remain constant. The more a movie makes, we predict the IMDB score to decrease, given that the rest of the variables remain constant. We have a few theories as to why. We think that movies that are older may get looked at in rose colored glasses, or liked a bit more due to nostalgia, and newer movies may not be around long enough to find their audience. When it comes to gross box office, we think it could be because movies that have a wider audience in movie theaters may be viewed more critically than an indie movie that made a lot less. 
+Our findings mostly agree with our expectations. We were a bit surprised that the movie rating (Certificate) was dropped in the final model, but other than that, the model ended up using variables we expected to use, as seen in 4.1 when we just chose our own variables, and it ended up being extremely close to our final model chosen by stepwise selection based on bic value in part 5.
+We learned about various models outside of simple linear regression while working on this project. We were able to create multiple linear regression models, linear regression using categorical variables, and we learned how to make nonlinear models. We learned how to code in r, and for those of us who already knew, we learned how to use methods such as the lm() function, which is extremely useful, and we have already used it in other courses. 
+Our project had some limitations. Our model was not able to extrapolate well outside of the range of the IMDB scores in our dataset. This means that any movie that is below (or maybe above) the range is not predicted well. This makes sense, since this dataset is the top 1000 IMDB movies, the slope of our regression line is going to be flatter than if it were a random sample from all movies. We also struggled at times with sharing code, but creating a shared Google Doc helped to remedy that. 
+
+####Reference
+
+citation(Niu, 2019)
+ https://medium.com/@ordosnb/movie-genre-and-profits-913a3142a0fb
